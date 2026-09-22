@@ -17,7 +17,8 @@
 - **六层诊断模型**：从词汇、句式、结构，到论证、情感、节奏——只删几个"综上所述"治标不治本，真正露馅的往往是观点骑墙和节奏太匀。
 - **六类改写手术**：删 / 拆 / 换 / 加 / 调 / 立，每类都有可操作的规则和 before/after。
 - **中英文双语**：内置中文套话/黑话词库与英文 ChatGPT 高频词库（delve、tapestry、leverage、seamless、robust……）。
-- **可运行的诊断脚本**：纯 Python 标准库，零依赖，输出 0–100 嫌疑分、命中套话及例句、结构信号和改写优先级，支持 JSON。
+- **可运行的诊断脚本**：纯 Python 标准库、零依赖。输出 0–100 嫌疑分、命中套话及例句、结构信号，并**逐句定位最该改的句子**（`P段S句`编号 + 命中原因）；支持原文标注 `--annotate`、多文件/目录批量扫描、JSON，自带单元测试。
+- **更细的语言信号**：中文检测空心动词（进行/开展/予以 + 动作词）与空洞强调句（是……重要的），英文检测名词化（the implementation of）、em-dash 插入语、弱开头（It is/There are）与修辞问句；短文本（<4 句或 <80 字）自动关闭统计类信号以防误报。
 - **分平台手册**：小红书、公众号、知乎、微博/X、口播、邮件、工作汇报、学术、英文，各有不同的"自然"标准。
 - **保真优先**：只改"怎么说"，不改"说什么"，不编造数据和经历；专业文本该工整就工整。
 
@@ -47,11 +48,13 @@ humanize-writing/
 │   ├── platform-guide.md          # 各平台/体裁/中英文的范式与配比
 │   └── examples.md                # 完整篇章的诊断与改写对照
 ├── scripts/
-│   └── humanize_check.py          # AI 味启发式诊断 CLI（纯标准库）
+│   └── humanize_check.py          # AI 味启发式诊断 CLI（纯标准库，零依赖）
+├── tests/
+│   └── test_humanize_check.py     # 单元测试（python -m unittest discover -s tests）
 └── examples/
-    ├── sample-ai-zh.txt           # 中文 AI 腔样例（约 79 分）
-    ├── sample-human-zh.txt        # 中文自然稿对照（约 0 分）
-    └── sample-ai-en.txt           # 英文 AI 腔样例（约 82 分）
+    ├── sample-ai-zh.txt           # 中文 AI 腔样例（约 76 分，高）
+    ├── sample-human-zh.txt        # 中文自然稿对照（约 0 分，低）
+    └── sample-ai-en.txt           # 英文 AI 腔样例（约 82 分，高）
 ```
 
 ## 作为 Agent Skill 安装
@@ -70,19 +73,26 @@ git clone https://github.com/ZZZ234234234/humanize-writing-skill.git
 零依赖，Python 3.8+：
 
 ```bash
-# 检测文件，输出人类可读报告
+# 检测文件，输出人类可读报告（含最该改的句子 Top 5）
 python scripts/humanize_check.py article.txt
 
-# 强制语言 / 管道输入 / JSON 输出
+# 在原文中用 ⟦ ⟧ 标出命中的套话词，边看边改
+python scripts/humanize_check.py article.txt --annotate
+
+# 多文件 / 整个目录批量扫描（汇总表）
+python scripts/humanize_check.py post1.md post2.md docs/
+
+# 强制语言 / 管道输入 / JSON（含每句嫌疑分）/ 调整列出的句子数
 python scripts/humanize_check.py article.txt --lang en
 cat article.txt | python scripts/humanize_check.py
 python scripts/humanize_check.py article.txt --json
+python scripts/humanize_check.py article.txt --top 8
 ```
 
 输出示例（中文 AI 腔样例）：
 
 ```
-AI 味嫌疑分: 79/100（高）  [███████████████████░░░░░]
+AI 味嫌疑分: 76/100（高）  [██████████████████░░░░░░]
 ■ 套话/口号词：共命中 17 处
   ×2  在当今
   ×1  众所周知
@@ -91,13 +101,23 @@ AI 味嫌疑分: 79/100（高）  [███████████████
 ■ 结构与节奏信号（▲ 表示触发）：
  ▲ 句首连接词占比: 0.308
  ▲ 「首先/其次/最后」式枚举
- ▲ 具体数字密度过低 ...
+■ 最该优先改写的句子（Top 5）：
+  1. [P4S2｜嫌疑17] 让我们一起携手……让书香为我们的人生保驾护航
+       → 套话：让我们/共同/奔赴/保驾护航；句子过长
+  2. [P1S2｜嫌疑9] 众所周知，书籍是人类进步的阶梯……
+       → 套话：众所周知；「不仅…而且…」对仗递进；句子过长
 ■ 优先改写建议：
   1. 删除高频套话，换成具体的对象、动作和判断。
   ...
 ```
 
-脚本检测的信号包括：套话/口号词密度、模板化句式、段落与句长整齐度（变异系数）、句首连接词占比、排比连续、编号式枚举、感叹号/emoji 密度、第一人称密度、具体数字密度等。**结果是启发式参考，不是判定结论**；专业、工整的文本分数偏高可能是体裁需要。
+脚本检测的信号包括：套话/口号词密度、模板化句式、段落与句长整齐度（变异系数）、句首连接词占比、排比连续、编号式枚举、感叹号/emoji 密度、第一人称密度、具体数字密度；中文另测空心动词与空洞强调句，英文另测名词化、em-dash、弱开头与修辞问句。问题会定位到具体句子并给出命中原因。**结果是启发式参考，不是判定结论**；专业、工整的文本分数偏高可能是体裁需要，短文本会自动跳过依赖统计样本的信号。
+
+运行测试：
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## 工作原理（六层模型）
 

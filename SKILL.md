@@ -33,12 +33,17 @@ description: 把 AI 味、模板腔、官话套话的中英文文本改写成有
 **可选——跑确定性诊断脚本**（适合长文或用户想要客观依据时）：
 
 ```bash
-python scripts/humanize_check.py <文本文件>          # 人类可读报告
-python scripts/humanize_check.py article.txt --json # JSON（含命中位置）
-cat article.txt | python scripts/humanize_check.py  # 管道输入
+python scripts/humanize_check.py article.txt             # 人类可读报告（含逐句定位）
+python scripts/humanize_check.py article.txt --annotate  # 在原文用 ⟦ ⟧ 标出套话词
+python scripts/humanize_check.py article.txt --json      # JSON（含每句嫌疑分）
+python scripts/humanize_check.py a.txt b.txt docs/       # 多文件/目录批量扫描
+python scripts/humanize_check.py article.txt --top 8     # 列出最可疑的 8 句
+cat article.txt | python scripts/humanize_check.py       # 管道输入
 ```
 
-脚本输出 0–100 的"嫌疑分"、命中的套话词及例句、结构信号（段落/句长整齐度、连接词密度、第一人称与具体数字密度等）和改写优先级。它只反映**表层套路密度**，是启发式参考，不是真伪判定；分数低不代表写得好，专业文本分数偏高也可能是体裁需要。脚本内置中英文词库，可用 `--lang zh|en` 强制语言。
+脚本输出 0–100 的"嫌疑分"、命中的套话词及例句、结构信号和改写优先级，并把问题**定位到具体句子**（`P段S句`编号 + 该句命中原因，按嫌疑分排序）。检测信号包括：套话/口号词密度、模板句式、段落与句长整齐度（变异系数）、句首连接词占比、排比连续、编号式枚举、感叹号/emoji 密度、第一人称与具体数字密度；中文另测**空心动词**（进行/开展/予以/加以 + 动作词）和**空洞强调句**（是……重要/关键……的），英文另测**名词化**（the implementation of）、**em-dash 插入语**、**弱开头**（It is/There are）和**修辞问句**。短文本（<4 句或 <80 字）会自动跳过依赖统计样本的信号以免误报。
+
+它只反映**表层套路密度**，是启发式参考，不是真伪判定；分数低不代表写得好，专业文本分数偏高也可能是体裁需要。内置中英文词库，可用 `--lang zh|en` 强制语言；`--annotate` 适合边看原文边改，多文件给汇总表。
 
 ### 第 2 步：定强度
 
